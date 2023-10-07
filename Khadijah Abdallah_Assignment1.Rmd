@@ -1,0 +1,994 @@
+---
+title: "BSHES 740: Assignment 1"
+author: "Khadijah Abdallah"
+date: "October 6, 2023"
+output:
+  html_document: null
+  toc: yes
+  word_document: default
+toc_float: yes
+---
+  
+#Step 1: Load the csv files  
+```{r loading-data}
+
+# Clear the R environment
+rm(list = ls())
+
+setwd("C:/Users/keabdal/OneDrive - Emory University/6_Doctoral Courses_Fall2023/BSHES 740/Labs")
+set1 <- read.csv("TADA_A1_set1.csv")
+set2 <- read.csv("TADA_A1_set2.csv")
+
+head(set1)
+head(set2)
+
+```
+
+#The assignment: 
+#Task/Question 1: What are the date ranges for the two sets? What informaiton is provided in the CSV files? What are the languages in which tweets have been posted? (2 points)
+**Set 1 2019 Answers:** The date range for the first set is between November 1st, 2019 to January 30th 2020, so it's posts that lasted for about 3 months.
+-As for What information is provided in the CSV files. We obtain that information from the head() function above, and it shows us that the dataset provides us with data on the date the tweets were posted, the content of those tweets on those dates, the language the tweets are posted in and the geographical location of the posts/tweets.  
+-Which languages are the tweets posted in? Several languages are shown here, 38 different languages, english, canadian, french, italian, and more. The two languages with the most tweets are english and candian (also english). This will be relevant for our work.
+
+```{r Task1-descriptives-set1}
+
+#1.1: Date ranges for set 1 (2019): 
+#First convert the variable to a date so that R can read it 
+Sys.setlocale("LC_TIME", "en_US.UTF-8") # Set the locale to English (United States)
+set1$date <- as.Date(set1$date, format = "%m/%d/%Y")
+str(set1$date) #checking to see if as.Date() function worked and it did. 
+
+#summary() function will give us a date range. The answer is: 01-11-2019 to 01-30-2020 for set 1
+summary(set1$date)
+
+#1.2: to see what columns are there
+colnames(set1)
+
+
+#1.3:table() funciton to see what languages the tweets are in
+table(set1$lang)
+
+
+```
+
+##Set 2 (2020):
+**Answer for Question/Task 1 for Set 2:** 
+The date range for the first set is between February 1st, 2020 to April 29th, 2020 for set 2, so it contains posts that lasted for time period of about 3 months- but we should note that this was the period where COVID19 was declared a global pandemic and some states had enforced shelter in place policies.
+-As for What information is provided in the CSV files. We obtain that information from the head() function above, and it shows us that the dataset provides us with dates the tweets were posted, the content of those tweets, the language the tweets are posted in, and the geographical location of the posts/tweets.  
+-Which languages are the tweets posted in? Several languages are shown here: 38 different languages as in set 1 and include: english, canadian, french, spanish, and more. The two languages with the most tweets here are also english and canadian (also english).
+
+```{r Task1-descriptives-set2}
+
+#1.1: Date ranges for set 1 (2019): 
+set2$date <- as.Date(set2$date, format = "%m/%d/%Y")
+str(set2$date) #checking to see if as.Date() function worked and it did. 
+
+#summary() function will give us a date range. The answer is: 02-01-2020 to 04-29-2020 for set 2
+summary(set2$date)
+
+#1.2: to see what columns are there
+colnames(set2)
+
+#1.3:table() funciton to see what languages the tweets are in
+table(set2$lang)
+
+
+```
+
+
+#Task/Question 2: What is the total number of posts in set 1? What is the total in Set 2?
+**Answer Task/Question 2**: Set 1, which consists of posts from November 2019 to January 2020, has a total of 171,012 posts. While set 2, which consists of posts from February 2020 to April 2020, contains a total of 226,852 posts. It's important to note that there are more total posts in set 2, which means that 1) more poeple are utilizing twitter and 2) there may not just be an overall increase in not just number of tweets but also the content of the tweets. This is a reminder to look at the percentage of tweets that are later on (for questions 3 and even 4) covering methadone and other substances. 
+
+```{r Task2-totalNumber-Posts-set1}
+
+summary(set1$text)
+
+```
+
+```{r Task2-totalNumber-Posts-set2}
+
+summary(set2$text)
+
+
+```
+
+
+#Task/Question 3: How many tweets are there for methadone, Suboxone, and fentanyl in total? Tip: sometimes alternative expressions are used for substances (e.g., fent for fentanyl)?
+**Answer Task/Question 3**: We examined tweets that mention opioids as well as alternative names for them and the treatment drug which is suboxone. These substances were mentioned 133,117 times in set 1 and 177,948 times throughout the texts in set 2. A few patterns can be noted; in general, regardless of which time period we look at, both methadone and fentanyl are mentioned more frequently than suboxone. This implies that not much conversation around treatment for opioid treatment is happening. Moreover, fentanyl is mentioned at higher frequencies than methadone in both sets 1 and 2. When we break it down by exact substance, we see that methadone is mentioned more frequently during the covid period (8666 in set1 vs. 12,551 in set2) and fentanyl is also mentioned more frequently during the COVID-19 period (145,932 in set1 vs. 193,196 in set2). Suboxone, on the other hand, is mentioned even less (5409 in set1 vs. 3,915 in set2). As a public health practitioner, I would be concerned that perhaps the increase in substances chatter is indicative of an uptick in substance misuse. Given the circumstances surrounding the period between March and April of 2020, when COVID19 pandemic awareness and policies were elevated, this concern may be more substantiatied. 
+
+```{r preprocessing-set-1}
+#tm library needed
+library(tm)
+#Note: had to install the package SnowballC because i was getting an error message for the tm package
+library(SnowballC)
+
+
+#Before we analyze the data for specific tokens or words, we'll perform the preprocessing steps:
+#Note: I tried doing the pre-processing step without structuring my dataframe using hte corpus() function but then i wouldn't be able to use osme of the tm mapping preprocessing steps such as stopword removal and stemdocument fucniton. 
+
+#So, start by structuring our dataframe into a corpus (this will be especially important for our wordcloud task in question 6 which requires this structure):
+
+tweet_texts_set1 <- set1$text
+tweet_text_corpus_set1 <- Corpus(VectorSource(tweet_texts_set1))
+
+#Pre-processing steps:
+  tweet_text_corpus_set1 <- tm_map(tweet_text_corpus_set1, content_transformer(tolower))
+  tweet_text_corpus_set1 <- tm_map(tweet_text_corpus_set1, function(x) removeWords(x, stopwords("en")))
+  tweet_text_corpus_set1 <- tm_map(tweet_text_corpus_set1, function(x) removeWords(x, stopwords("french")))
+  tweet_text_corpus_set1 <- tm_map(tweet_text_corpus_set1, function(x) removeWords(x, stopwords("spanish")))
+  tweet_text_corpus_set1 <- tm_map(tweet_text_corpus_set1, removePunctuation)
+  tweet_text_corpus_set1 <- tm_map(tweet_text_corpus_set1, removeNumbers)
+  tweet_text_corpus_set1 <- tm_map(tweet_text_corpus_set1, stemDocument)
+  #remove url
+removeURL <- function(x) gsub("http[[:alnum:]]*", "", x)
+tweet_text_corpus_set1 <- tm_map(tweet_text_corpus_set1, content_transformer(removeURL))
+  
+
+  ##convert our corpus to a document matrix so statistical computation (e.g., correlations) can be conducted:
+dtm_set1 <- DocumentTermMatrix(tweet_text_corpus_set1)
+inspect(dtm_set1)
+
+  
+  #check content, I choose to look at the 100th tweet
+  tweet_text_corpus_set1[[100]]$content
+  ```
+```
+
+
+```{r opioid-mentions-set-1}
+
+  #Now, we search for number of tweets for methadone, suboxone, and fentanyl or fent? 
+  #NOte, from slide 18 in lecture 5: functions like grep(), grepl(), gsub(), are functions that search texts to arguments for patterns that we specify. In this case we will ask it to search for the opioid patterns in all the tweets:
+  #note: fent is alternative for fentanyl
+ 
+  
+  pattern <- ("methadone | suboxone | fentanyl | fent | meth")
+  set1_OpioidMentions <- grep(pattern, tolower(tweet_texts_set1))
+  #the length() function will sum up for us how many texts contain those words:
+  length(set1_OpioidMentions) #answer: the words are mentioned 133,117 times throughout the texts in set 1 
+  
+  #How many times were each of the substances mentioned in set 1?
+  #methadone
+  set1_methadone <- grepl("methadone", tolower(tweet_texts_set1))
+    #the sum() function will sum up for us how many texts contain those words:
+  sum(set1_methadone) #answer: methadone is mentioned 8666 times in set 1 (total)
+  
+  #suboxone
+  set1_suboxone <- grepl("suboxone", tolower(tweet_texts_set1))
+  #the sum() function will sum up for us how many texts contain those words:
+  sum(set1_suboxone) #answer: suboxone is mentioned 5409 times in set 1 (total)
+  
+  #fentanyl
+  set1_fentanyl <- grepl("fentanyl | fent", tolower(tweet_texts_set1))
+  #the sum() function will sum up for us how many texts contain those words:
+  sum(set1_fentanyl) #answer: suboxone is mentioned 145,932 times in set 1 (total)..def mentioned the most, followed by methadone and suboxone is mentioned the least.
+
+```
+
+##Opiod Mentions in Set 2
+
+```{r preprocessing-set2}
+#Go ahead and create the corpus here to be consistent with what we did for set 1:
+#So, start by structuring our dataframe into a corpus:
+
+tweet_texts_set2 <- set2$text
+tweet_text_corpus_set2 <- Corpus(VectorSource(tweet_texts_set2))
+
+#Pre-processing steps:
+tweet_text_corpus_set2 <- tm_map(tweet_text_corpus_set2, content_transformer(tolower))
+tweet_text_corpus_set2 <- tm_map(tweet_text_corpus_set2, removeWords, stopwords("english"))
+tweet_text_corpus_set2 <- tm_map(tweet_text_corpus_set2, removeWords, stopwords("spanish"))
+tweet_text_corpus_set2 <- tm_map(tweet_text_corpus_set2, removeWords, stopwords("french"))
+tweet_text_corpus_set2 <- tm_map(tweet_text_corpus_set2, stemDocument)
+  tweet_text_corpus_set2 <- tm_map(tweet_text_corpus_set2, removePunctuation)
+  tweet_text_corpus_set2 <- tm_map(tweet_text_corpus_set2, removeNumbers)
+ 
+  #remove url
+removeURL <- function(x) gsub("http[[:alnum:]]*", "", x)
+tweet_text_corpus_set1 <- tm_map(tweet_text_corpus_set1, content_transformer(removeURL))
+
+#First, we need to convert our corpus to a document matrix so statistical computation (e.g., correlations) can be conducted:
+dtm_set2 <- DocumentTermMatrix(tweet_text_corpus_set2)
+inspect(dtm_set2)
+#check content, I choose to look at the 100th tweet
+tweet_text_corpus_set2[[100]]$content
+```
+
+
+```{r opioid-mentions-set-2}
+#pattern already coded above. Now we examine site 2's mentions:
+set2_OpioidMentions <- grep(pattern, tolower(tweet_texts_set2))#ignore.case takes care of upper & lower cases
+#the length() function will sum up for us how many texts contain those words:
+length(set2_OpioidMentions) #answer: the words are mentioned 177,948 times throughout the texts in set 2 
+
+
+
+#How many times were each of the substances mentioned in set 2?
+#methadone
+set2_methadone <- grepl("methadone", tolower(tweet_texts_set2))#ignore.case takes care of upper & lower cases
+#the sum() function will sum up for us how many texts contain those words:
+sum(set2_methadone) #answer: methadone is mentioned 12,551 times in set 2 (total)
+
+#suboxone
+set2_suboxone <- grepl("suboxone", tolower(tweet_texts_set2))#ignore.case takes care of upper & lower cases
+#the sum() function will sum up for us how many texts contain those words:
+sum(set2_suboxone) #answer: suboxone is mentioned 3,915 times in set 2 (total)
+
+#fentanyl
+set2_fentanyl <- grepl("fentanyl | fent", tolower(tweet_texts_set2))#ignore.case takes care of upper & lower cases
+#the sum() function will sum up for us how many texts contain those words:
+sum(set2_fentanyl) #answer: suboxone is mentioned 193.196 times in set 2 (total)..def mentioned the most, followed by methadone and suboxone is mentioned the least.
+
+```
+
+
+#Task/Question 4: Are there fentanyl analogs that are also being discussed (eg., carfentanil)? (1 point)
+**Answer Task/Question 4**:
+Yes, the fentanyl analog, known as carfentanil, was mentioned in both set 1 (before COVID) and set 2 (during the pandemic). It was mentioned 660 times in set 1 and 298 times in set 2. So, it was actually mentioned less during the COVID19 period.
+
+```{r fentanyl-analogs-mentioned-set1}
+
+#We can see if carfentanil is mentioned simply searching for that pattern:
+#to detect other analogs that i may not be aware of, this character vector (analog_patterns) will detect any words that contain fent with whatever words or characters are before it or after it. It may be a bit broad but I think it's better to approach it this way because it may capture just fentanil or fent or other misspellings instead of actual analogs. So instead i will rely on the CDC classifications for analogs:
+#analog_patterns <- "\\w*fent\\w*"
+
+
+analog_patterns <- c("carfentanil | acetylfentanyl | butyrfentanyl | alfentanil | sufentanil | remifentanil")
+
+set1_fentAnalog <- grep(analog_patterns, tolower(tweet_texts_set1))
+#the length() function will sum up for us how many texts contain those words:
+length(set1_fentAnalog) #answer: the words are mentioned 660 times for set 1 (the first 3 months before covid)
+
+
+
+
+```
+
+
+```{r fentanyl-analogs-mentioned-set2}
+
+#We can see if carfentanil is mentioned simply searching for that pattern:
+set2_fentAnalog <- grep(analog_patterns, tolower(tweet_texts_set2))#ignore.case takes care of upper & lower cases
+#the length() function will sum up for us how many texts contain those words:
+length(set2_fentAnalog) #answer: the words are mentioned 298 times for set 2 (the three months during COVID)
+```
+#Task/Question 5:  What are some of the topics that are most closely associated with each of the three substances? The top 5-10 topics (if relevant) are acceptable. (2 points)
+**Answer Task/Question 5**:
+
+##Set 1 Methadone Correlations
+**Notes**:
+These terms were most correlated with methadone: cocain (rho=0.21), crystal (rho=0.19), heroin (rho), so more domain expertise may be able to explain if there really is some connection between these topics or not.
+
+```{r set1-methadone-correlations}
+
+
+
+#One way to look at terms that occurr frequently or are closely associated with each set:
+#Now, Get the terms that occur at least 20 times and store in a variable named terms_with_high_freq
+terms_with_high_freq_set1 <- findFreqTerms(dtm_set1, lowfreq=15, highfreq=Inf)
+
+#How many are there? View the 10 most frequent items in the variable.
+summary (terms_with_high_freq_set1)
+
+#View the most frequent items or 'terms':
+terms_with_high_freq_set1[1:10]
+
+
+#Can also look at associations 
+
+corr <- 0.1 # defining the correlation threshold because for some reason, I was getting an error message that it wasn't recognizing corr in the code below. When i assinged the value of 0.2, it seemed to recognze these words:
+
+terms_methadone_set1 <- findAssocs(dtm_set1, 'methadone', corr) #the word we want to see correlations with is 'fentanyl'
+
+print (terms_methadone_set1)
+
+
+
+```
+
+##Set 1 Fentanyl or Fent Correlations
+**Notes**:
+These terms were the most correlated with Fentanyl: drug, heroin, illicit, kill, china, overdose, death, people, opioid, lace and sentence. Some terms that were slighltly less correlated but close to our threshold of rho<= 0.2 include cocain, opiod, lace, and trafficking. So, compared to methadone, the terms here seem to relate more to sensitive topics regarding drug use, perhaps where to get it, and whether or not overdosing and jail sentencing may be an issue. 
+
+We also looked into terms associated with the alternative term 'fent' and found that it was correlated strongly with these topics: que, per, amb, del, les, com, tot, esta, mes. The thing that stands out here is that it's associated with a mix of spanish and french stopwords, but also some abbreviations such as amb that are not very clear. It could mean ambulance or something else. We'll have to disregard these topics though given that they're not in english. So, i tried removing stopwords in spanish and french to see if it returns different results. 
+
+As for the fentanyl analog, carfentanil, the associated topics with term were:update, hilliard, stronger, million, instead, bust, potent, police, eleven, mammals. Terms like potent, stronger, police, and bust may seem to make sense given that carfentanil is an illicit substance. However, update and hilliard are not clearly obvious why they are correlated with this word. 
+
+```{r set1-fentanyl-correlations}
+
+
+findAssocs(dtm_set1,"fentanyl",0.1) #0.1 is the threshold for the correlation statistic 
+
+
+```
+```{r fent-correlations}
+
+fentcorrelations <- findAssocs(dtm_set1, "fent", 0.1)
+print(fentcorrelations)
+
+```
+
+```{r carfentanil-correlations}
+
+
+
+carfentcorrelations <- findAssocs(dtm_set1, "carfentanil", 0.1)
+print(carfentcorrelations)
+
+
+```
+
+##Set 1 Suboxone Correlations
+**Notes**:
+These terms were the most correlated with methadone: bayer and urine
+
+```{r suboxone-correlations}
+
+findAssocs(dtm_set1,"suboxone",0.1) #0.1 is the threshold for the correlation statistic 
+
+
+```
+
+##Set 2 Methadone Correlations
+**Notes**:
+These terms were the most correlated with methadone:  cocaine (rho=0.24), fentanyl (p=0.18), heroin (rho=0.18), crystal (rho=0.18), checkpoint (rho=0.16), seiz (rho=0.15), monkey (rho=0.14), cartel (rho=0.12)
+```{r set2-methadone-correlations}
+
+findAssocs(dtm_set2,"meth",0.08) #0.08 is the threshold for the correlation coefficient
+
+
+```
+
+##Set 2 Fentanyl or Fent Correlations
+**Notes**:
+These terms were the most correlated with Fentanyl: drug, heroin, kill, china, death, illicit, overdo and border and amp as well as cocain and meth. So, compared to methadone, the terms here seem to relate more to sensitive topics regarding drug use, perhaps where to get it, and whether or not overdosing and jail sentencing may be an issue. 
+
+We also looked into terms associated with the alternative term 'fent' and found that it was correlated strongly with these topics: per (p=0.28), amb (p=0.24), esta (p=0.22), tot (p=0.21), es (p=0.21). The thing that stands out here is that it's associated with a mix of spanish and french stopwords, but also some abbreviations such as amb that are not very clear. It could mean ambulance or something else. We'll have to disregard these topics though given that they're not in english. So, i tried removing stopwords in spanish and french to see if it returns different results. 
+
+As for the fentanyl analog, carfentanil, the associated topics with term were: cuyahoga (p=0.15), danforth (p=0.14), wave' (p=0.12), fourth (p=0.12), shooter (p=0.11), ufhealth (p=0.11), ukcop (p=0.11). 
+
+```{r set2-fentanyl-correlations}
+
+findAssocs(dtm_set2,"fentanyl",0.1) #0.1 is the threshold for the correlation statistic 
+
+```
+
+```{r}
+fentcorrelations2 <- findAssocs(dtm_set2, "fent", 0.1)
+print(fentcorrelations2)
+
+```
+
+```{r}
+carfentcorrelations2 <- findAssocs(dtm_set2, "carfentanil", 0.1)
+print(carfentcorrelations2)
+
+```
+
+
+
+##Set 2 Suboxone Correlations
+**Notes**:
+These terms were the most correlated with suboxone in set 2:
+
+```{r suboxone-correlations}
+
+findAssocs(dtm_set2,"suboxone",0.1) #0.1 is the threshold for the correlation statistic 
+
+
+```
+
+
+
+#Task/Question 6: Generate word clouds for each set, so that they can be shown to the researcher. (2 points)
+**Answer Task/Question 6**:
+##Set 1 Word Cloud:
+```{r word-cloud-set1}
+library(wordcloud)
+
+wordcloud_set1 <- wordcloud( tweet_text_corpus_set1, min.freq=10, max.words=200, scale=c(3,.1), random.order=FALSE, colors=brewer.pal(12, "Set3"))
+
+plot(wordcloud_set1)
+```
+
+##Set 2 Word Cloud
+```{r wordcloud-set2}
+
+#Need to create a corpus for set2 and preprocess the data:
+#tm library needed but already loaded previously
+#Before we analyze the data for specific tokens or words, we'll perform the preprocessing steps:
+#Note: I tried doing the pre-processing step without structuring my dataframe using hte corpus() function but then i wouldn't be able to use osme of the tm mapping preprocessing steps such as stopword removal and stemdocument fucniton. 
+
+wordcloud_set2 <- wordcloud(tweet_text_corpus_set2, min.freq=10, max.words=200, scale=c(2,.1), random.order=FALSE, colors=brewer.pal(12, "Set3"))
+
+plot(wordcloud_set2, fixed=TRUE)
+
+```
+
+
+#Task/Question 7: Generate appropriate time-series figures to compare how the frequencies of mentions of these substances differ. (2 points)
+
+
+
+Note: If your time series plots for different substances look very similar, it might indicate that the data for these substances follows a similar pattern over time, or that there isn't a significant difference in the frequency of mentions between them
+
+##Question 7: Set 1 Methadone 
+```{r time-series-set1-methadone}
+# Follow the rtweet tutorial to plot a time series of tweets Use the ts_plot() function
+
+
+#First we have to convert the time stamp to a standard time.
+#Explanation: The ts_plot() function expects a datetime variable of type POSIXct (a specific date and time format) to create time series plots, not just a Date object (like what we created in question/task 1). This is because rtweet is designed to work with Twitter data, which typically includes both date and time information. So we format it accordingly:
+
+set1$created_at <- as.POSIXct (set1$date, format = "%m/%d/%Y", tz="UTC")
+
+#Secondly: we plot by monthly intervals:
+library(rtweet) #rtweet package is needed for the ts_plot() function 
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+
+
+
+# Count the number of mentions of "methadone" by time intervals
+tweets_aggMonthly_set1_methadone <- set1 %>%
+  mutate(interval = floor_date(created_at, "15 days")) %>%
+  filter(grepl("methadone", tolower(text))) %>%
+  group_by(interval) %>%
+  summarise(tweet_count = n())
+
+# Create a time series plot
+ts_plot(tweets_aggMonthly_set1_methadone, by = "15 days") +
+  ggplot2::theme_minimal() +
+  ggplot2::theme(plot.title = ggplot2::element_text(face = "bold")) +
+  ggplot2::labs(
+    x = "Time Interval",
+    y = "Frequency",
+    title = "Frequency of Tweets Mentioning Methadone",
+    subtitle = "Tweets per 15-Day Intervals",
+    caption = "Methadone data collected from Nov 2019 - Jan 2020"
+  )
+
+
+```
+
+##Question 7: Set 1 Fentanyl or Fent 
+```{r time-series-set1-fentanyl}
+
+# Count the number of mentions of "fentanyl" by time intervals
+tweets_aggMonthly_set1_fentanyl <- set1 %>%
+  mutate(interval = floor_date(created_at, "15 days")) %>%
+  filter(grepl("fentanyl", tolower(text))) %>%
+  group_by(interval) %>%
+  summarise(tweet_count = n())
+
+# Create a time series plot
+ts_plot(tweets_aggMonthly_set1_fentanyl, by = "15 days") +
+  ggplot2::theme_minimal() +
+  ggplot2::theme(plot.title = ggplot2::element_text(face = "bold")) +
+  ggplot2::labs(
+    x = "Time Interval",
+    y = "Frequency",
+    title = "Frequency of Tweets Mentioning Fentanyl",
+    subtitle = "Tweets per 15-Day Intervals",
+    caption = "Fentanyl data collected from Nov 2019 - Jan 2020"
+  )
+
+
+```
+
+##Question 7: Set 1 Suboxone 
+```{r time-series-set1-Suboxone}
+
+
+# Count the number of mentions of "suboxone" by time intervals
+tweets_aggMonthly_set1_suboxone <- set1 %>%
+  mutate(interval = floor_date(created_at, "15 days")) %>%
+  filter(grepl("suboxone", tolower(text))) %>%
+  group_by(interval) %>%
+  summarise(tweet_count = n())
+
+# Create a time series plot
+ts_plot(tweets_aggMonthly_set1_suboxone, by = "15 days") +
+  ggplot2::theme_minimal() +
+  ggplot2::theme(plot.title = ggplot2::element_text(face = "bold")) +
+  ggplot2::labs(
+    x = "Time Interval",
+    y = "Frequency",
+    title = "Frequency of Tweets Mentioning Suboxone",
+    subtitle = "Tweets per 15-Day Intervals",
+    caption = "Suboxone data collected from Nov 2019 - Jan 2020"
+  )
+
+```
+
+
+##Question 7: Set 2 Methadone 
+```{r time-series-set2-methadone}
+# Follow the rtweet tutorial to plot a time series of tweets Use the ts_plot() function
+
+
+#First we have to convert the time stamp to a standard time.
+#Explanation: The ts_plot() function expects a datetime variable of type POSIXct (a specific date and time format) to create time series plots, not just a Date object (like what we created in question/task 1). This is because rtweet is designed to work with Twitter data, which typically includes both date and time information. So we format it accordingly:
+
+set2$created_at <- as.POSIXct (set2$date, format = "%m/%d/%Y", tz="UTC")
+
+
+# Count the number of mentions of "methadone" by time intervals
+tweets_aggMonthly_set2_methadone <- set2 %>%
+  mutate(interval = floor_date(created_at, "15 days")) %>%
+  filter(grepl("methadone", tolower(text))) %>%
+  group_by(interval) %>%
+  summarise(tweet_count = n())
+
+# Create a time series plot
+ts_plot(tweets_aggMonthly_set2_methadone, by = "15 days") +
+  ggplot2::theme_minimal() +
+  ggplot2::theme(plot.title = ggplot2::element_text(face = "bold")) +
+  ggplot2::labs(
+    x = "Time Interval",
+    y = "Frequency",
+    title = "Frequency of Tweets Mentioning Methadone",
+    subtitle = "Tweets per 15-Day Intervals",
+    caption = "Methadone data collected from Feb2020 - Apr2020"
+  )
+
+
+```
+
+##Question 7: Set 2 Fentanyl or Fent 
+```{r time-series-set2-fentanyl}
+
+
+# Count the number of mentions of "methadone" by time intervals
+tweets_aggMonthly_set2_fentanyl <- set2 %>%
+  mutate(interval = floor_date(created_at, "15 days")) %>%
+  filter(grepl("fentanyl", tolower(text))) %>%
+  group_by(interval) %>%
+  summarise(tweet_count = n())
+
+# Create a time series plot
+ts_plot(tweets_aggMonthly_set2_fentanyl, by = "15 days") +
+  ggplot2::theme_minimal() +
+  ggplot2::theme(plot.title = ggplot2::element_text(face = "bold")) +
+  ggplot2::labs(
+    x = "Time Interval",
+    y = "Frequency",
+    title = "Frequency of Tweets Mentioning Fentanyl",
+    subtitle = "Tweets per 15-Day Intervals",
+    caption = "Fentanyl data collected from Feb2020 - Apr2020"
+  )
+
+
+```
+
+##Question 7: Set 2 Suboxone 
+```{r time-series-set2-Suboxone}
+
+
+# Count the number of mentions of "methadone" by time intervals
+tweets_aggMonthly_set2_suboxone <- set2 %>%
+  mutate(interval = floor_date(created_at, "15 days")) %>%
+  filter(grepl("suboxone", tolower(text))) %>%
+  group_by(interval) %>%
+  summarise(tweet_count = n())
+
+# Create a time series plot
+ts_plot(tweets_aggMonthly_set2_suboxone, by = "15 days") +
+  ggplot2::theme_minimal() +
+  ggplot2::theme(plot.title = ggplot2::element_text(face = "bold")) +
+  ggplot2::labs(
+    x = "Time Interval",
+    y = "Frequency",
+    title = "Frequency of Tweets Mentioning Suboxone",
+    subtitle = "Tweets per 15-Day Intervals",
+    caption = "Suboxone data collected from Feb2020 - Apr2020"
+  )
+
+```
+
+
+#Task/Question 8:Find the top 10 most frequent bigrams in each of the three sets (i.e. substances-methadone, fentayl, suboxone). Plot a bar chart for these. (2 points)
+**Answer Task/Question 8**:
+For this section, i will merge set1 and set2 to see what the general frequent bigrams are about. I think it gives us good insight. 
+
+
+```{r merging-sets1-and-2}
+library(dplyr)
+
+#Binding or concatenating sets 1 and 2:
+
+# Read the CSV files
+
+
+# Concatenate the data frames vertically
+concatenated_data <- rbind(set1, set2)
+
+# Save the concatenated data to a new CSV file
+write.csv(concatenated_data, "concatenated_data.csv", row.names = FALSE)
+
+summary(concatenated_data)
+
+
+
+
+```
+
+##Bigrams for Methadone in the combined dataset
+```{r methadone-bigrams}
+
+# Filter rows where "methadone" appears in the text column
+methadone <- concatenated_data %>%
+  filter(grepl("methadone", tolower(text)))
+
+# Define a custom function to create bigrams
+create_bigrams <- function(text) {
+  words <- unlist(strsplit(text, " "))
+  bigrams <- c()
+  
+  for (i in 1:(length(words) - 1)) {
+    bigram <- paste(words[i], words[i + 1], sep = "_")
+    bigrams <- c(bigrams, bigram)
+  }
+  
+  return(bigrams)
+}
+
+# Apply the custom function to create bigrams for "methadone" rows
+bigrams_methadone <- lapply(methadone$text, create_bigrams)
+
+# Flatten the list of bigrams
+all_bigrams_methadone <- unlist(bigrams_methadone)
+
+# Calculate bigram frequencies
+bigram_frequencies_methadone <- table(all_bigrams_methadone)
+
+# Create a data frame for the bigram frequencies
+bigram_df_methadone <- data.frame(bigram = names(bigram_frequencies_methadone), frequency = as.numeric(bigram_frequencies_methadone))
+
+# Sort the bigrams by frequency in descending order
+bigram_df_methadone <- bigram_df_methadone %>% arrange(desc(frequency))
+
+# Select the top 10 most frequent bigrams
+top_bigrams_methadone <- head(bigram_df_methadone, 10)
+
+# View the top 10 bigrams
+print(top_bigrams_methadone)
+
+```
+
+##Bar chart for Methadone
+```{r plot-methadone-bigrams}
+# Create a bar plot for the top 10 bigrams
+plot_title_methadone <- "Top 10 Bigrams for methadone"
+p_methadone <- ggplot(top_bigrams_methadone, aes(x = reorder(bigram, -frequency), y = frequency)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  coord_flip() +
+  labs(x = "Bigram", y = "Frequency", title = plot_title_methadone) +
+  theme_minimal() +
+  theme(plot.background = element_rect(fill = "lightgray"))
+
+# Display the bar chart
+print(p_methadone)
+
+
+BigramPlots_methadone <- paste(substance, "Methadone_bigrams.png", sep = "")
+  ggsave(BigramPlots_methadone, p_methadone, width = 5, height = 2)
+
+```
+
+##Bigrams for Fentanyl
+```{r fentanyl-bigrams}
+
+# Filter rows where "fentanyl" appears in the text column
+fentanyl <- concatenated_data %>%
+  filter(grepl("fentanyl", tolower(text)))
+
+# Define a custom function to create bigrams
+create_bigrams <- function(text) {
+  words <- unlist(strsplit(text, " "))
+  bigrams <- c()
+  
+  for (i in 1:(length(words) - 1)) {
+    bigram <- paste(words[i], words[i + 1], sep = "_")
+    bigrams <- c(bigrams, bigram)
+  }
+  
+  return(bigrams)
+}
+
+# Apply the custom function to create bigrams for "fentanyl" rows
+bigrams_fentanyl <- lapply(fentanyl$text, create_bigrams)
+
+# Flatten the list of bigrams
+all_bigrams_fentanyl <- unlist(bigrams_fentanyl)
+
+# Calculate bigram frequencies
+bigram_frequencies_fentanyl <- table(all_bigrams_fentanyl)
+
+# Create a data frame for the bigram frequencies
+bigram_df_fentanyl <- data.frame(bigram = names(bigram_frequencies_fentanyl), frequency = as.numeric(bigram_frequencies_fentanyl))
+
+# Sort the bigrams by frequency in descending order
+bigram_df_fentanyl <- bigram_df_fentanyl %>% arrange(desc(frequency))
+
+# Select the top 10 most frequent bigrams
+top_bigrams_fentanyl <- head(bigram_df_fentanyl, 10)
+
+# View the top 10 bigrams
+print(top_bigrams_fentanyl)
+
+```
+
+##Bar chart for Fentanyl
+```{r}
+# Create a bar plot for the top 10 bigrams
+plot_title_fentanyl <- "Top 10 Bigrams for fentanyl"
+p_fentanyl <- ggplot(top_bigrams_fentanyl, aes(x = reorder(bigram, -frequency), y = frequency)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  coord_flip() +
+  labs(x = "Bigram", y = "Frequency", title = plot_title_fentanyl) +
+  theme_minimal() +
+  theme(plot.background = element_rect(fill = "lightgray"))
+
+# Display the bar chart
+print(p_fentanyl)
+
+
+BigramPlots_fentanyl <- paste(substance, "fentanyl_bigrams.png", sep = "")
+  ggsave(BigramPlots_fentanyl, p_fentanyl, width = 5, height = 2)
+```
+
+
+##to visualize the Frequent Bigrams for suboxone
+
+```{r suboxone-bigrams}
+
+# Filter rows where "suboxone" appears in the text column
+suboxone <- concatenated_data %>%
+  filter(grepl("suboxone", tolower(text)))
+
+# Define a custom function to create bigrams
+create_bigrams <- function(text) {
+  words <- unlist(strsplit(text, " "))
+  bigrams <- c()
+  
+  for (i in 1:(length(words) - 1)) {
+    bigram <- paste(words[i], words[i + 1], sep = "_")
+    bigrams <- c(bigrams, bigram)
+  }
+  
+  return(bigrams)
+}
+
+# Apply the custom function to create bigrams for "suboxone" rows
+bigrams_suboxone <- lapply(suboxone$text, create_bigrams)
+
+# Flatten the list of bigrams
+all_bigrams_suboxone <- unlist(bigrams_suboxone)
+
+# Calculate bigram frequencies
+bigram_frequencies_suboxone <- table(all_bigrams_suboxone)
+
+# Create a data frame for the bigram frequencies
+bigram_df_suboxone <- data.frame(bigram = names(bigram_frequencies_suboxone), frequency = as.numeric(bigram_frequencies_suboxone))
+
+# Sort the bigrams by frequency in descending order
+bigram_df_suboxone <- bigram_df_suboxone %>% arrange(desc(frequency))
+
+# Select the top 10 most frequent bigrams
+top_bigrams_suboxone <- head(bigram_df_suboxone, 10)
+
+# View the top 10 bigrams
+print(top_bigrams_suboxone)
+```
+
+##Bar chart for Suboxone
+```{r bar-chart-suboxone}
+# Create a bar plot for the top 10 bigrams
+plot_title_suboxone <- "Top 10 Bigrams for Suboxone"
+p_suboxone <- ggplot(top_bigrams_suboxone, aes(x = reorder(bigram, -frequency), y = frequency)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  coord_flip() +
+  labs(x = "Bigram", y = "Frequency", title = plot_title_suboxone_set1) +
+  theme_minimal() +
+  theme(plot.background = element_rect(fill = "lightgray"))
+
+# Display the bar chart
+print(p_suboxone_set1)
+
+
+BigramPlots_suboxone <- paste(substance, "Suboxone_bigrams.png", sep = "")
+  ggsave(BigramPlots_suboxone, p_suboxone, width = 5, height = 2)
+
+```
+
+********************************************************************************************************************************************************************************************************************
+###NOTE: Code below did not work but I'm keeping it here********************************************************************************************************************************************************
+
+##Question 8 set 1 bigrams: Creating the Bigrams
+```{r bigrams-for-set1}
+
+#First, recall that we created a corpus for set 1: tweet_text_corpus
+
+# Define the list of substances you want to focus on
+substances_to_analyze <- c("methadone", "fentanyl", "suboxone")
+
+#then, we can create a custom transformation funciton for bigram tokenization for set 1 (here we split the documents' texts into words then combines the words to create bigrams:
+
+# Define a custom tokenizer function for extracting bigrams related to specific substances: methadone, fentanyl, fent, and suboxone 
+custom_bigram_tokenizer_set1 <- function(x, substances) {
+  words <- unlist(strsplit(x, " "))
+  bigrams <- character(0)
+  
+  for (i in 1:(length(words) - 1)) {
+    if (words[i] %in% substances) {
+      bigram <- paste(words[i], words[i + 1], sep = " ")
+      bigrams <- c(bigrams, bigram)
+    }
+  }
+  
+  return(bigrams)
+}
+
+
+
+##third, apply the custom tokenizer to the corpus: tweet_text_corpus. We've already pre-processed the corpus earlier on so now we just have to apply the bigram tokenizer function, and we focus on the specified substances
+tweet_text_corpus_set1 <- tm_map(tweet_text_corpus_set1, content_transformer(custom_bigram_tokenizer_set1), substances = substances_to_analyze)
+
+
+#view the content of a few tokenized bigrams:
+# Show a sample of tokenized bigrams for some random documents
+sample_bigrams_set1 <- lapply(tweet_text_corpus_set1[1000:1015], as.character)
+sample_bigrams_set1
+
+
+```
+
+
+##Question 8 Set 1 Visualizing the bigrams:
+```{r visualizing-bigrams-set1}
+
+setwd("C:/Users/keabdal/OneDrive - Emory University/6_Doctoral Courses_Fall2023/BSHES 740/Assignments/Assignment 1 Due 6Oct2023")
+
+# 1- we Create a list to store the bigrams for each substance
+substance_bigrams_set1 <- list()
+
+#2 this code helps us Iterate over each substance
+for (substance in substances_to_analyze) {
+  # Filter and extract bigrams related to the current substance
+  substance_bigrams_set1[[substance]] <- lapply(tweet_text_corpus_set1, function(doc) {
+    bigrams <- unlist(doc)
+    bigrams[bigrams %in% paste(substance, c("methadone", "fentanyl", "suboxone"), sep = " ")]
+  })
+}
+
+#3 Flatten the list of bigrams for easier analysis
+all_bigrams_set1 <- unlist(substance_bigrams_set1)
+
+#4 Calculate bigram frequencies
+bigram_frequencies_set1 <- table(all_bigrams_set1)
+
+#5 Create a data frame for the bigram frequencies
+bigram_df_set1 <- data.frame(bigram = names(bigram_frequencies_set1), frequency = as.numeric(bigram_frequencies_set1))
+
+#6 Sort the bigrams by frequency in descending order
+bigram_df_set1 <- bigram_df_set1 %>% arrange(desc(frequency))
+
+#7 Select the top 10 most frequent bigrams
+top_bigrams_set1 <- head(bigram_df_set1, 10)
+
+#8 Create a bar plot for the top bigrams for each substance
+for (substance in substances_to_analyze) {
+  plot_title_set1 <- paste("Top 10 Bigrams for", substance)
+  p_set1 <- ggplot(subset(top_bigrams_set1, bigram %in% paste(substance, c("methadone", "fentanyl", "suboxone"), sep = " ")), 
+                   aes(x = reorder(bigram, -frequency), y = frequency)) +
+    geom_bar(stat = "identity", fill = "blue") +
+    coord_flip() +
+    labs(x = "Bigram", y = "Frequency", title = plot_title_set1) +
+    theme_minimal() +
+    theme(plot.background=element_rect(fill="lightgray")) #this is to change the background color b/c the default was black
+
+  # Save the plot to a file (e.g., PNG or PDF)
+  BigramPlots_set1 <- paste(substance, "_bigrams.png", sep = "")
+  ggsave(BigramPlots_set1, p_set1, width = 5, height = 2)
+}
+
+
+ 
+```
+
+
+##Question 8 set 2 bigrams: Creating the Bigrams
+```{r bigrams-for-set2}
+
+
+#First, recall that we created a corpus for set 1: tweet_text_corpus
+
+#then, we can create a custom transformation funciton for bigram tokenization for set 1 (here we split the documents' texts into words then combines the words to create bigrams:
+
+# Define a custom tokenizer function for extracting bigrams related to specific substances: methadone, fentanyl, fent, and suboxone 
+custom_bigram_tokenizer_set2 <- function(x, substances) {
+  words <- unlist(strsplit(x, " "))
+  bigrams <- character(0)
+  
+  for (i in 1:(length(words) - 1)) {
+    if (words[i] %in% substances) {
+      bigram <- paste(words[i], words[i + 1], sep = " ")
+      bigrams <- c(bigrams, bigram)
+    }
+  }
+  
+  return(bigrams)
+}
+
+#we defined the list of substances earlier 
+
+##third, apply the custom tokenizer to the corpus: tweet_text_corpus. We've already pre-processed the corpus earlier on so now we just have to apply the bigram tokenizer function, and we focus on the specified substances
+tweet_text_corpus_set2 <- tm_map(tweet_text_corpus_set2, content_transformer(custom_bigram_tokenizer_set2), substances = substances_to_analyze)
+
+
+
+#view the content of a few tokenized bigrams:
+# Show a sample of tokenized bigrams for some random documents
+sample_bigrams_set2 <- lapply(tweet_text_corpus_set2[1000:1015], as.character)
+sample_bigrams_set2
+
+
+```
+
+##Question 8: Visualizing Top Bigrams for Set 2
+```{r bigrams-visualizations-set2}
+setwd("C:/Users/keabdal/OneDrive - Emory University/6_Doctoral Courses_Fall2023/BSHES 740/Assignments/Assignment 1 Due 6Oct2023")
+
+#1, we Create a list to store the bigrams for each substance
+substance_bigrams_set2 <- list()
+
+# 2, we Create and save bar plots for each substance's bigrams
+for (substance in substances_to_analyze) {
+  # Filter and extract bigrams related to the current substance
+  substance_bigrams_set2[[substance]] <- lapply(tweet_text_corpus_set2, function(doc) {
+    bigrams <- unlist(doc)
+    bigrams[bigrams %in% paste(substance, c("methadone", "fentanyl", "suboxone"), sep = " ")]
+  }) 
+
+  
+  # Flatten the list of bigrams for easier analysis
+  all_bigrams_set2 <- unlist(substance_bigrams_set2[[substance]])
+  
+  # Calculate bigram frequencies
+  bigram_frequencies_set2 <- table(all_bigrams_set2)
+  
+  
+  # Create a data frame for the bigram frequencies
+  bigram_df_set2 <- data.frame(bigram = names(bigram_frequencies_set2), frequency = as.numeric(bigram_frequencies_set2))
+  
+  # Sort the bigrams by frequency in descending order
+  bigram_df_set2 <- bigram_df_set2 %>% arrange(desc(frequency))
+  
+  # Select the top 10 most frequent bigrams
+  top_bigrams_set2 <- head(bigram_df_set2, 10)
+  
+  # Create a bar plot for the top bigrams
+  plot_title_set2 <- paste("Top 10 Bigrams for", substance)
+  p_set2 <- ggplot(top_bigrams_set2, aes(x = reorder(bigram, -frequency), y = frequency)) +
+    geom_bar(stat = "identity", fill = "blue") +
+    coord_flip() +
+    labs(x = "Bigram", y = "Frequency", title = plot_title_set2) +
+    theme_minimal()+
+    theme(plot.background=element_rect(fill="lightgray")) #this is to change the background color b/c the default was black
+  
+# Save the plot to a file (e.g., PNG or PDF)
+  BigramPlots_set2 <- paste(substance, "_bigrams.png", sep = "")
+  ggsave(BigramPlots_set2, p_set2, width = 5, height = 2)
+}
+
+```
+
+
+
+
+#Task/Question 9: Write a report (described below) for your experiments and results. (6 points)
+**Answer Task/Question 9**:
+
+
